@@ -1088,6 +1088,15 @@ export default function DesignTool({
           timestamp: new Date(),
         };
         setGenerations((prev) => [...prev, newGen]);
+        // Log every AI generation (fire-and-forget)
+        if (actor)
+          actor
+            .logAiGeneration(
+              prompt,
+              target.generatedImageUrl,
+              newGen.generatedImageUrl,
+            )
+            .catch(() => {});
         setRefineTargetId(null);
         setInputText("");
         await recordPhotoUsageLocal();
@@ -1150,6 +1159,11 @@ export default function DesignTool({
             timestamp: new Date(Date.now() + i),
           };
           newGens.push(newGen);
+          // Log every AI generation (fire-and-forget)
+          if (actor)
+            actor
+              .logAiGeneration(prompt, imgUrl, newGen.generatedImageUrl)
+              .catch(() => {});
           await recordPhotoUsageLocal();
         }
 
@@ -1199,10 +1213,6 @@ export default function DesignTool({
       );
       toast.success("Saved to History!");
       setStarModalOpen(false);
-      // Fire-and-forget log
-      (actor as any)
-        .logAiGeneration(starModalPrompt, "", starModalImageUrl)
-        .catch(() => {});
     } catch (err) {
       console.error("Failed to save starred entry:", err);
       toast.error("Failed to save to history");

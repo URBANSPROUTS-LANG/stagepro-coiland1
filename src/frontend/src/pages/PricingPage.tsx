@@ -19,7 +19,7 @@ const PLANS = [
     videos: 1,
     color: "#6366F1",
     bg: "#EEF2FF",
-    razorpayLink: "https://rzp.io/rzp/8Zib43o",
+    razorpayLink: "https://rzp.io/rzp/6y5tK5zr",
     features: [
       "8 photo transformations/month",
       "1 video generation/month",
@@ -35,7 +35,7 @@ const PLANS = [
     videos: 2,
     color: "#0EA5E9",
     bg: "#E0F2FE",
-    razorpayLink: "https://rzp.io/rzp/Q0rj75K5",
+    razorpayLink: "https://rzp.io/rzp/xjGVvbT",
     features: [
       "20 photo transformations/month",
       "2 video generations/month",
@@ -52,7 +52,7 @@ const PLANS = [
     color: "#10B981",
     bg: "#D1FAE5",
     popular: true,
-    razorpayLink: "https://rzp.io/rzp/b37CVwov",
+    razorpayLink: "https://rzp.io/rzp/jUnyW6v",
     features: [
       "50 photo transformations/month",
       "5 video generations/month",
@@ -69,7 +69,7 @@ const PLANS = [
     videos: 12,
     color: "#F59E0B",
     bg: "#FEF3C7",
-    razorpayLink: "https://rzp.io/rzp/KQ0aPd1",
+    razorpayLink: "https://rzp.io/rzp/zDRawzo",
     features: [
       "120 photo transformations/month",
       "12 video generations/month",
@@ -86,7 +86,7 @@ const PLANS = [
     videos: 50,
     color: "#EC4899",
     bg: "#FCE7F3",
-    razorpayLink: "https://rzp.io/rzp/OfYF5yMg",
+    razorpayLink: "https://rzp.io/rzp/JVUjTGcE",
     features: [
       "250 photo transformations/month",
       "50 video generations/month",

@@ -301,6 +301,12 @@ export default function StagingFlow({
       setProgress(100, "Complete!");
       setStagedImageUrl(imageUrl);
 
+      // Log every AI generation (fire-and-forget, includes input image)
+      if (actor) {
+        const inputImg = imageBase64 || imagePreview || "";
+        actor.logAiGeneration(prompt, inputImg, imageUrl || "").catch(() => {});
+      }
+
       // Persist result
       const existing = JSON.parse(
         localStorage.getItem("stagepro_orders") || "[]",
@@ -425,10 +431,6 @@ export default function StagingFlow({
       );
       toast.success("Saved to History!");
       setStarModalOpen(false);
-      // Fire-and-forget log
-      (actor as any)
-        .logAiGeneration(prompt, "", stagedImageUrl || "")
-        .catch(() => {});
     } catch (err) {
       console.error("Failed to save starred entry:", err);
       toast.error("Failed to save to history");

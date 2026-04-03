@@ -8,7 +8,7 @@ import Time "mo:core/Time";
 import Int "mo:core/Int";
 import Order "mo:core/Order";
 import Nat "mo:core/Nat";
-import Migration "migration";
+
 import Storage "blob-storage/Storage";
 
 import MixinAuthorization "authorization/MixinAuthorization";
@@ -17,7 +17,7 @@ import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
 import MixinStorage "blob-storage/Mixin";
 
-(with migration = Migration.run)
+
 actor {
   // ========== TYPES ==========
   // Subscription Plans

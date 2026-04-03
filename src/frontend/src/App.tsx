@@ -11,13 +11,20 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
+import AdminLogsPage from "./pages/AdminLogsPage";
 import DesignTool from "./pages/DesignTool";
 import HistoryPage from "./pages/HistoryPage";
 import LandingPage from "./pages/LandingPage";
 import PricingPage from "./pages/PricingPage";
 import StagingFlow from "./pages/StagingFlow";
 
-export type AppView = "landing" | "design" | "pricing" | "staging" | "history";
+export type AppView =
+  | "landing"
+  | "design"
+  | "pricing"
+  | "staging"
+  | "history"
+  | "admin-logs";
 export type Page = "landing" | "staging" | "dashboard";
 
 const REVIEWS = [
@@ -444,9 +451,19 @@ function PreLoginPage({
 
 export default function App() {
   const [view, setView] = useState<AppView>("landing");
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const { identity, login, clear, isInitializing } = useInternetIdentity();
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
   const { actor } = useActor();
+
+  // Check admin status once authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !actor) return;
+    (actor as any)
+      .isCallerAdmin()
+      .then((result: boolean) => setIsAdmin(result))
+      .catch(() => setIsAdmin(false));
+  }, [isAuthenticated, actor]);
 
   // Handle Razorpay / legacy payment redirect
   useEffect(() => {
@@ -521,6 +538,19 @@ export default function App() {
 
   return (
     <>
+      {/* Admin badge overlay — clickable to open Admin Logs */}
+      {isAdmin && (
+        <button
+          type="button"
+          data-ocid="admin.badge"
+          className="fixed top-4 right-4 z-50 px-3 py-1 rounded-full text-xs font-semibold shadow-md cursor-pointer select-none transition-opacity hover:opacity-80 border-0"
+          style={{ backgroundColor: "#6F9D79", color: "#fff" }}
+          onClick={() => setView("admin-logs")}
+        >
+          Admin · Logs
+        </button>
+      )}
+
       {view === "landing" && (
         <LandingPage
           onGetStarted={() => setView("design")}
@@ -564,6 +594,9 @@ export default function App() {
       )}
       {view === "history" && (
         <HistoryPage onBack={() => setView("design")} actor={actor} />
+      )}
+      {view === "admin-logs" && (
+        <AdminLogsPage onBack={() => setView("design")} actor={actor} />
       )}
       <Toaster />
     </>
