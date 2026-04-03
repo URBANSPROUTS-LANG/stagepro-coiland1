@@ -11,7 +11,8 @@
     "github-export-icp-cli": "1.0.1",
     "authorization": "4.0.1",
     "http-outcalls": "3.0.0",
-    "stripe": "3.0.0"
+    "stripe": "3.0.0",
+    "blob-storage": "4.0.0"
   },
   "tags": [],
   "aiCoreVersion": "0.dev"

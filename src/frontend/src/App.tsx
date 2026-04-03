@@ -12,11 +12,12 @@ import { toast } from "sonner";
 import { useActor } from "./hooks/useActor";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import DesignTool from "./pages/DesignTool";
+import HistoryPage from "./pages/HistoryPage";
 import LandingPage from "./pages/LandingPage";
 import PricingPage from "./pages/PricingPage";
 import StagingFlow from "./pages/StagingFlow";
 
-export type AppView = "landing" | "design" | "pricing" | "staging";
+export type AppView = "landing" | "design" | "pricing" | "staging" | "history";
 export type Page = "landing" | "staging" | "dashboard";
 
 const REVIEWS = [
@@ -538,6 +539,8 @@ export default function App() {
           identity={identity}
           onLogin={login}
           onLogout={clear}
+          onHistory={() => setView("history")}
+          actor={actor}
         />
       )}
       {view === "pricing" && (
@@ -556,7 +559,11 @@ export default function App() {
             else setView("landing");
           }}
           actor={actor}
+          onHistory={() => setView("history")}
         />
+      )}
+      {view === "history" && (
+        <HistoryPage onBack={() => setView("design")} actor={actor} />
       )}
       <Toaster />
     </>

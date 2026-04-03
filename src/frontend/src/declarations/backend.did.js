@@ -8,6 +8,17 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const _CaffeineStorageCreateCertificateResult = IDL.Record({
+  'method' : IDL.Text,
+  'blob_hash' : IDL.Text,
+});
+export const _CaffeineStorageRefillInformation = IDL.Record({
+  'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
+});
+export const _CaffeineStorageRefillResult = IDL.Record({
+  'success' : IDL.Opt(IDL.Bool),
+  'topped_up_amount' : IDL.Opt(IDL.Nat),
+});
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
@@ -28,6 +39,14 @@ export const ShoppingItem = IDL.Record({
   'productDescription' : IDL.Text,
 });
 export const Time = IDL.Int;
+export const AiGenerationLog = IDL.Record({
+  'id' : IDL.Nat,
+  'createdAt' : Time,
+  'inputImageBlobId' : IDL.Text,
+  'userPrincipal' : IDL.Principal,
+  'prompt' : IDL.Text,
+  'outputImageBlobId' : IDL.Text,
+});
 export const DesignEntry = IDL.Record({
   'principal' : IDL.Principal,
   'createdAt' : Time,
@@ -39,10 +58,21 @@ export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'createdAt' : Time,
 });
+export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const CustomTheme = IDL.Record({
   'principal' : IDL.Principal,
   'name' : IDL.Text,
   'createdAt' : Time,
+  'prompt' : IDL.Text,
+});
+export const StarredEntry = IDL.Record({
+  'id' : IDL.Nat,
+  'name' : IDL.Text,
+  'createdAt' : Time,
+  'description' : IDL.Text,
+  'updatedAt' : Time,
+  'imageUrl' : IDL.Text,
+  'userPrincipal' : IDL.Principal,
   'prompt' : IDL.Text,
 });
 export const SubscriptionUsage = IDL.Record({
@@ -89,9 +119,40 @@ export const TransformationOutput = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  '_caffeineStorageBlobIsLive' : IDL.Func(
+      [IDL.Vec(IDL.Nat8)],
+      [IDL.Bool],
+      ['query'],
+    ),
+  '_caffeineStorageBlobsToDelete' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Vec(IDL.Nat8))],
+      ['query'],
+    ),
+  '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
+      [IDL.Vec(IDL.Vec(IDL.Nat8))],
+      [],
+      [],
+    ),
+  '_caffeineStorageCreateCertificate' : IDL.Func(
+      [IDL.Text],
+      [_CaffeineStorageCreateCertificateResult],
+      [],
+    ),
+  '_caffeineStorageRefillCashier' : IDL.Func(
+      [IDL.Opt(_CaffeineStorageRefillInformation)],
+      [_CaffeineStorageRefillResult],
+      [],
+    ),
+  '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addCustomTheme' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], []),
   'addDesign' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], []),
+  'addStarredEntry' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'claimRazorpayPayment' : IDL.Func([IDL.Text, SubscriptionPlan], [], []),
   'createCheckoutSession' : IDL.Func(
@@ -100,16 +161,38 @@ export const idlService = IDL.Service({
       [],
     ),
   'deleteCustomTheme' : IDL.Func([IDL.Int], [], []),
+  'deleteStarredEntry' : IDL.Func([IDL.Nat], [], []),
+  'getAiGenerationLogCount' : IDL.Func([], [IDL.Nat], ['query']),
+  'getAiGenerationLogs' : IDL.Func([], [IDL.Vec(AiGenerationLog)], ['query']),
+  'getAiGenerationLogsReverse' : IDL.Func(
+      [],
+      [IDL.Vec(AiGenerationLog)],
+      ['query'],
+    ),
+  'getAiGenerationLogsSorted' : IDL.Func(
+      [],
+      [IDL.Vec(AiGenerationLog)],
+      ['query'],
+    ),
   'getAllDesigns' : IDL.Func([], [IDL.Vec(DesignEntry)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getDesignHistorySorted' : IDL.Func([], [IDL.Vec(DesignEntry)], ['query']),
+  'getImage' : IDL.Func([ExternalBlob], [ExternalBlob], ['query']),
   'getMyCustomThemes' : IDL.Func([], [IDL.Vec(CustomTheme)], ['query']),
   'getMyProfile' : IDL.Func([], [UserProfile], ['query']),
+  'getMyStarredEntries' : IDL.Func([], [IDL.Vec(StarredEntry)], ['query']),
+  'getMyStarredEntryCount' : IDL.Func([], [IDL.Nat], []),
   'getMySubscription' : IDL.Func([], [SubscriptionUsage], ['query']),
   'getPlanLimitsQuery' : IDL.Func([SubscriptionPlan], [PlanLimits], []),
   'getPuterToken' : IDL.Func([], [IDL.Text], ['query']),
+  'getStarredEntries' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Vec(StarredEntry)],
+      ['query'],
+    ),
   'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+  'getTotalStarredEntryCount' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -117,6 +200,7 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+  'logAiGeneration' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
   'recordPhotoUsage' : IDL.Func([], [], []),
   'recordVideoUsage' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
@@ -130,11 +214,23 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'updateMyProfile' : IDL.Func([IDL.Text], [], []),
+  'updateStarredEntry' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const _CaffeineStorageCreateCertificateResult = IDL.Record({
+    'method' : IDL.Text,
+    'blob_hash' : IDL.Text,
+  });
+  const _CaffeineStorageRefillInformation = IDL.Record({
+    'proposed_top_up_amount' : IDL.Opt(IDL.Nat),
+  });
+  const _CaffeineStorageRefillResult = IDL.Record({
+    'success' : IDL.Opt(IDL.Bool),
+    'topped_up_amount' : IDL.Opt(IDL.Nat),
+  });
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
@@ -155,6 +251,14 @@ export const idlFactory = ({ IDL }) => {
     'productDescription' : IDL.Text,
   });
   const Time = IDL.Int;
+  const AiGenerationLog = IDL.Record({
+    'id' : IDL.Nat,
+    'createdAt' : Time,
+    'inputImageBlobId' : IDL.Text,
+    'userPrincipal' : IDL.Principal,
+    'prompt' : IDL.Text,
+    'outputImageBlobId' : IDL.Text,
+  });
   const DesignEntry = IDL.Record({
     'principal' : IDL.Principal,
     'createdAt' : Time,
@@ -166,10 +270,21 @@ export const idlFactory = ({ IDL }) => {
     'name' : IDL.Text,
     'createdAt' : Time,
   });
+  const ExternalBlob = IDL.Vec(IDL.Nat8);
   const CustomTheme = IDL.Record({
     'principal' : IDL.Principal,
     'name' : IDL.Text,
     'createdAt' : Time,
+    'prompt' : IDL.Text,
+  });
+  const StarredEntry = IDL.Record({
+    'id' : IDL.Nat,
+    'name' : IDL.Text,
+    'createdAt' : Time,
+    'description' : IDL.Text,
+    'updatedAt' : Time,
+    'imageUrl' : IDL.Text,
+    'userPrincipal' : IDL.Principal,
     'prompt' : IDL.Text,
   });
   const SubscriptionUsage = IDL.Record({
@@ -213,9 +328,40 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    '_caffeineStorageBlobIsLive' : IDL.Func(
+        [IDL.Vec(IDL.Nat8)],
+        [IDL.Bool],
+        ['query'],
+      ),
+    '_caffeineStorageBlobsToDelete' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Vec(IDL.Nat8))],
+        ['query'],
+      ),
+    '_caffeineStorageConfirmBlobDeletion' : IDL.Func(
+        [IDL.Vec(IDL.Vec(IDL.Nat8))],
+        [],
+        [],
+      ),
+    '_caffeineStorageCreateCertificate' : IDL.Func(
+        [IDL.Text],
+        [_CaffeineStorageCreateCertificateResult],
+        [],
+      ),
+    '_caffeineStorageRefillCashier' : IDL.Func(
+        [IDL.Opt(_CaffeineStorageRefillInformation)],
+        [_CaffeineStorageRefillResult],
+        [],
+      ),
+    '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addCustomTheme' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], []),
     'addDesign' : IDL.Func([IDL.Text, IDL.Text], [IDL.Nat], []),
+    'addStarredEntry' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'claimRazorpayPayment' : IDL.Func([IDL.Text, SubscriptionPlan], [], []),
     'createCheckoutSession' : IDL.Func(
@@ -224,16 +370,38 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'deleteCustomTheme' : IDL.Func([IDL.Int], [], []),
+    'deleteStarredEntry' : IDL.Func([IDL.Nat], [], []),
+    'getAiGenerationLogCount' : IDL.Func([], [IDL.Nat], ['query']),
+    'getAiGenerationLogs' : IDL.Func([], [IDL.Vec(AiGenerationLog)], ['query']),
+    'getAiGenerationLogsReverse' : IDL.Func(
+        [],
+        [IDL.Vec(AiGenerationLog)],
+        ['query'],
+      ),
+    'getAiGenerationLogsSorted' : IDL.Func(
+        [],
+        [IDL.Vec(AiGenerationLog)],
+        ['query'],
+      ),
     'getAllDesigns' : IDL.Func([], [IDL.Vec(DesignEntry)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getDesignHistorySorted' : IDL.Func([], [IDL.Vec(DesignEntry)], ['query']),
+    'getImage' : IDL.Func([ExternalBlob], [ExternalBlob], ['query']),
     'getMyCustomThemes' : IDL.Func([], [IDL.Vec(CustomTheme)], ['query']),
     'getMyProfile' : IDL.Func([], [UserProfile], ['query']),
+    'getMyStarredEntries' : IDL.Func([], [IDL.Vec(StarredEntry)], ['query']),
+    'getMyStarredEntryCount' : IDL.Func([], [IDL.Nat], []),
     'getMySubscription' : IDL.Func([], [SubscriptionUsage], ['query']),
     'getPlanLimitsQuery' : IDL.Func([SubscriptionPlan], [PlanLimits], []),
     'getPuterToken' : IDL.Func([], [IDL.Text], ['query']),
+    'getStarredEntries' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Vec(StarredEntry)],
+        ['query'],
+      ),
     'getStripeSessionStatus' : IDL.Func([IDL.Text], [StripeSessionStatus], []),
+    'getTotalStarredEntryCount' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -241,6 +409,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isStripeConfigured' : IDL.Func([], [IDL.Bool], ['query']),
+    'logAiGeneration' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [], []),
     'recordPhotoUsage' : IDL.Func([], [], []),
     'recordVideoUsage' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
@@ -254,6 +423,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'updateMyProfile' : IDL.Func([IDL.Text], [], []),
+    'updateStarredEntry' : IDL.Func([IDL.Nat, IDL.Text, IDL.Text], [], []),
   });
 };
 

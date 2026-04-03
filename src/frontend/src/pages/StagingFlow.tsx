@@ -1,7 +1,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertCircle,
   ArrowLeft,
@@ -12,6 +23,7 @@ import {
   Home,
   Loader2,
   RefreshCw,
+  Star,
   Upload,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -158,7 +170,8 @@ const PROGRESS_STEPS = [
 export default function StagingFlow({
   navigate,
   actor,
-}: { navigate: (p: Page) => void; actor?: any }) {
+  onHistory,
+}: { navigate: (p: Page) => void; actor?: any; onHistory?: () => void }) {
   const [step, setStep] = useState<Step>(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -173,6 +186,12 @@ export default function StagingFlow({
   const currentOrderId = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const puterTokenRef = useRef<string | null>(null);
+
+  // Star modal state
+  const [starModalOpen, setStarModalOpen] = useState(false);
+  const [starName, setStarName] = useState("");
+  const [starDescription, setStarDescription] = useState("");
+  const [isSavingStar, setIsSavingStar] = useState(false);
 
   // Load Puter auth token from backend on mount — no user popup
   useEffect(() => {
@@ -384,6 +403,38 @@ export default function StagingFlow({
     a.href = stagedImageUrl;
     a.download = `stagepro-${selectedStyle?.toLowerCase()}-${Date.now()}.jpg`;
     a.click();
+  };
+
+  const handleStarSave = async () => {
+    if (!starName.trim()) {
+      toast.error("Please enter a name");
+      return;
+    }
+    if (!actor) {
+      toast.error("Not connected to backend");
+      return;
+    }
+    setIsSavingStar(true);
+    const prompt = `${selectedStyle || ""} style room staging`;
+    try {
+      await (actor as any).addStarredEntry(
+        starName.trim(),
+        starDescription.trim(),
+        stagedImageUrl || "",
+        prompt,
+      );
+      toast.success("Saved to History!");
+      setStarModalOpen(false);
+      // Fire-and-forget log
+      (actor as any)
+        .logAiGeneration(prompt, "", stagedImageUrl || "")
+        .catch(() => {});
+    } catch (err) {
+      console.error("Failed to save starred entry:", err);
+      toast.error("Failed to save to history");
+    } finally {
+      setIsSavingStar(false);
+    }
   };
 
   const STEP_LABELS = ["Upload", "Style", "Plan", "Payment", "Result"];
@@ -813,7 +864,7 @@ export default function StagingFlow({
                           className="w-full rounded-xl mb-6 max-h-80 object-cover"
                         />
                       </div>
-                      <div className="flex gap-3 justify-center">
+                      <div className="flex gap-3 justify-center flex-wrap">
                         <Button
                           onClick={handleDownload}
                           className="gap-2"
@@ -823,12 +874,35 @@ export default function StagingFlow({
                         </Button>
                         <Button
                           variant="outline"
+                          onClick={() => {
+                            setStarName("");
+                            setStarDescription("");
+                            setStarModalOpen(true);
+                          }}
+                          className="gap-2"
+                          style={{ borderColor: "#FDE68A", color: "#D97706" }}
+                          data-ocid="staging.star.button"
+                        >
+                          <Star className="w-4 h-4" /> Star this
+                        </Button>
+                        <Button
+                          variant="outline"
                           onClick={() => navigate("dashboard")}
                           className="gap-2"
                           data-ocid="staging.secondary_button"
                         >
                           <Home className="w-4 h-4" /> View Dashboard
                         </Button>
+                        {onHistory && (
+                          <Button
+                            variant="outline"
+                            onClick={onHistory}
+                            className="gap-2"
+                            data-ocid="staging.history.button"
+                          >
+                            View History
+                          </Button>
+                        )}
                       </div>
                     </motion.div>
                   )}
@@ -838,6 +912,63 @@ export default function StagingFlow({
           )}
         </AnimatePresence>
       </main>
+
+      {/* Star / Save to History Modal */}
+      <Dialog
+        open={starModalOpen}
+        onOpenChange={(open) => {
+          if (!open) setStarModalOpen(false);
+        }}
+      >
+        <DialogContent className="sm:max-w-md" data-ocid="staging.star.dialog">
+          <DialogHeader>
+            <DialogTitle>⭐ Save to History</DialogTitle>
+            <DialogDescription>
+              Give this staged room a name to save it to your history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Name *</Label>
+              <Input
+                value={starName}
+                onChange={(e) => setStarName(e.target.value)}
+                placeholder="e.g. Modern Living Room"
+                data-ocid="staging.star.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description (optional)</Label>
+              <Textarea
+                value={starDescription}
+                onChange={(e) => setStarDescription(e.target.value)}
+                placeholder="Add notes about this staging..."
+                rows={3}
+                data-ocid="staging.star.textarea"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setStarModalOpen(false)}
+              data-ocid="staging.star.cancel_button"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleStarSave}
+              disabled={isSavingStar || !starName.trim()}
+              data-ocid="staging.star.confirm_button"
+            >
+              {isSavingStar && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+              )}
+              Save to History
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

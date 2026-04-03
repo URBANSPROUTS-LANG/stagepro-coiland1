@@ -10,6 +10,14 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface AiGenerationLog {
+  'id' : bigint,
+  'createdAt' : Time,
+  'inputImageBlobId' : string,
+  'userPrincipal' : Principal,
+  'prompt' : string,
+  'outputImageBlobId' : string,
+}
 export interface CustomTheme {
   'principal' : Principal,
   'name' : string,
@@ -22,6 +30,7 @@ export interface DesignEntry {
   'style' : string,
   'roomType' : string,
 }
+export type ExternalBlob = Uint8Array;
 export interface PlanLimits {
   'plan' : SubscriptionPlan,
   'videoLimit' : bigint,
@@ -34,6 +43,16 @@ export interface ShoppingItem {
   'quantity' : bigint,
   'priceInCents' : bigint,
   'productDescription' : string,
+}
+export interface StarredEntry {
+  'id' : bigint,
+  'name' : string,
+  'createdAt' : Time,
+  'description' : string,
+  'updatedAt' : Time,
+  'imageUrl' : string,
+  'userPrincipal' : Principal,
+  'prompt' : string,
 }
 export interface StripeConfiguration {
   'allowedCountries' : Array<string>,
@@ -73,6 +92,17 @@ export interface UserProfile {
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
+export interface _CaffeineStorageCreateCertificateResult {
+  'method' : string,
+  'blob_hash' : string,
+}
+export interface _CaffeineStorageRefillInformation {
+  'proposed_top_up_amount' : [] | [bigint],
+}
+export interface _CaffeineStorageRefillResult {
+  'success' : [] | [boolean],
+  'topped_up_amount' : [] | [bigint],
+}
 export interface http_header { 'value' : string, 'name' : string }
 export interface http_request_result {
   'status' : bigint,
@@ -80,9 +110,28 @@ export interface http_request_result {
   'headers' : Array<http_header>,
 }
 export interface _SERVICE {
+  '_caffeineStorageBlobIsLive' : ActorMethod<[Uint8Array], boolean>,
+  '_caffeineStorageBlobsToDelete' : ActorMethod<[], Array<Uint8Array>>,
+  '_caffeineStorageConfirmBlobDeletion' : ActorMethod<
+    [Array<Uint8Array>],
+    undefined
+  >,
+  '_caffeineStorageCreateCertificate' : ActorMethod<
+    [string],
+    _CaffeineStorageCreateCertificateResult
+  >,
+  '_caffeineStorageRefillCashier' : ActorMethod<
+    [[] | [_CaffeineStorageRefillInformation]],
+    _CaffeineStorageRefillResult
+  >,
+  '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addCustomTheme' : ActorMethod<[string, string], bigint>,
   'addDesign' : ActorMethod<[string, string], bigint>,
+  /**
+   * / Add a starred design (returns entry id)
+   */
+  'addStarredEntry' : ActorMethod<[string, string, string, string], bigint>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'claimRazorpayPayment' : ActorMethod<[string, SubscriptionPlan], undefined>,
   'createCheckoutSession' : ActorMethod<
@@ -90,19 +139,60 @@ export interface _SERVICE {
     string
   >,
   'deleteCustomTheme' : ActorMethod<[bigint], undefined>,
+  /**
+   * / Deletes a starred design for a user, if it exists
+   */
+  'deleteStarredEntry' : ActorMethod<[bigint], undefined>,
+  /**
+   * / Returns the number of AI Generation logs that have been created
+   */
+  'getAiGenerationLogCount' : ActorMethod<[], bigint>,
+  /**
+   * / Gets all logs (sorted by oldestId) (admin-only)
+   */
+  'getAiGenerationLogs' : ActorMethod<[], Array<AiGenerationLog>>,
+  /**
+   * / Gets all logs in reverse order (admin-only)
+   */
+  'getAiGenerationLogsReverse' : ActorMethod<[], Array<AiGenerationLog>>,
+  /**
+   * / Gets all logs (sorted by createdAt desc) (admin-only)
+   */
+  'getAiGenerationLogsSorted' : ActorMethod<[], Array<AiGenerationLog>>,
   'getAllDesigns' : ActorMethod<[], Array<DesignEntry>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getDesignHistorySorted' : ActorMethod<[], Array<DesignEntry>>,
+  'getImage' : ActorMethod<[ExternalBlob], ExternalBlob>,
   'getMyCustomThemes' : ActorMethod<[], Array<CustomTheme>>,
   'getMyProfile' : ActorMethod<[], UserProfile>,
+  /**
+   * / Get all of the caller's own starred entries (sorted by createdAt desc)
+   */
+  'getMyStarredEntries' : ActorMethod<[], Array<StarredEntry>>,
+  /**
+   * / Returns the number of starred entries for a user.
+   */
+  'getMyStarredEntryCount' : ActorMethod<[], bigint>,
   'getMySubscription' : ActorMethod<[], SubscriptionUsage>,
   'getPlanLimitsQuery' : ActorMethod<[SubscriptionPlan], PlanLimits>,
   'getPuterToken' : ActorMethod<[], string>,
+  /**
+   * / Get starred entries for a user (admin-only)
+   */
+  'getStarredEntries' : ActorMethod<[Principal], Array<StarredEntry>>,
   'getStripeSessionStatus' : ActorMethod<[string], StripeSessionStatus>,
+  /**
+   * / Returns the number of starred entries created by all users (admin-only).
+   */
+  'getTotalStarredEntryCount' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isStripeConfigured' : ActorMethod<[], boolean>,
+  /**
+   * / Used by backend to store logs
+   */
+  'logAiGeneration' : ActorMethod<[string, string, string], undefined>,
   'recordPhotoUsage' : ActorMethod<[], undefined>,
   'recordVideoUsage' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
@@ -112,6 +202,10 @@ export interface _SERVICE {
   'setUserPlan' : ActorMethod<[Principal, SubscriptionPlan], undefined>,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
   'updateMyProfile' : ActorMethod<[string], undefined>,
+  /**
+   * / Updates the name and description for a starred design (only for the user that created it).
+   */
+  'updateStarredEntry' : ActorMethod<[bigint, string, string], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

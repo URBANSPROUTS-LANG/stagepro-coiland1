@@ -8,12 +8,16 @@ import Time "mo:core/Time";
 import Int "mo:core/Int";
 import Order "mo:core/Order";
 import Nat "mo:core/Nat";
+import Migration "migration";
+import Storage "blob-storage/Storage";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 import Stripe "stripe/stripe";
 import OutCall "http-outcalls/outcall";
+import MixinStorage "blob-storage/Mixin";
 
+(with migration = Migration.run)
 actor {
   // ========== TYPES ==========
   // Subscription Plans
@@ -65,9 +69,33 @@ actor {
     createdAt : Time.Time;
   };
 
+  // ========== NEW TYPES ==========
+  // AI Generation Log
+  type AiGenerationLog = {
+    id : Nat;
+    userPrincipal : Principal;
+    prompt : Text;
+    inputImageBlobId : Text;
+    outputImageBlobId : Text;
+    createdAt : Time.Time;
+  };
+
+  // Starred Entry
+  type StarredEntry = {
+    id : Nat;
+    userPrincipal : Principal;
+    name : Text;
+    description : Text;
+    imageUrl : Text;
+    prompt : Text;
+    createdAt : Time.Time;
+    updatedAt : Time.Time;
+  };
+
   // ========== AUTHORIZATION ==========
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
+  include MixinStorage();
 
   // ========== DATA STRUCTURES ==========
   // Plan Limits (constant)
@@ -107,9 +135,22 @@ actor {
   // Persistent puter token with default value
   var puterToken : Text = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiZ3VpIiwidiI6IjAuMC4wIiwidSI6IkdiTzc1aEJTUWdlZUkyZFc3VVJqNHc9PSIsInV1IjoiTkFoem9pTmNTSXVqaDlnNTNCYXlhUT09IiwiaWF0IjoxNzc1MTg2MzUwfQ.X5Bl1Wy_5LIznQe5MzRYrxThANTaJQKJPXzhP-wZN9I";
 
+  // ========== NEW DATA STRUCTURES ==========
+  // AI Log
+  let aiGenerationLogs = Map.empty<Nat, AiGenerationLog>();
+  var nextAiLogId = 0;
+
+  // Starred Entries
+  let starredEntries = Map.empty<Nat, StarredEntry>();
+  var nextStarredEntryId = 0;
+
   // ========== USER MANAGEMENT ==========
 
   public shared ({ caller }) func selfRegister(name : Text) : async () {
+    // Prevent anonymous principals from registering
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot register");
+    };
     if (userProfiles.containsKey(caller)) {
       Runtime.trap("User already registered");
     };
@@ -250,7 +291,6 @@ actor {
   };
 
   // ========== PAYMENT INTEGRATION ==========
-
   public shared ({ caller }) func claimRazorpayPayment(paymentId : Text, planId : SubscriptionPlan) : async () {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can claim payments");
@@ -315,7 +355,10 @@ actor {
     await Stripe.createCheckoutSession(getStripeConfiguration(), caller, items, successUrl, cancelUrl, transform);
   };
 
-  public func getStripeSessionStatus(sessionId : Text) : async Stripe.StripeSessionStatus {
+  public shared ({ caller }) func getStripeSessionStatus(sessionId : Text) : async Stripe.StripeSessionStatus {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can check session status");
+    };
     await Stripe.getSessionStatus(getStripeConfiguration(), sessionId, transform);
   };
 
@@ -407,6 +450,11 @@ actor {
     };
   };
 
+  // ========== EXTERNAL BLOB STORAGE MANAGEMENT ==========
+  public query ({ caller }) func getImage(image : Storage.ExternalBlob) : async Storage.ExternalBlob {
+    image;
+  };
+
   // ========== PUTER TOKEN MANAGEMENT ==========
 
   public query ({ caller }) func getPuterToken() : async Text {
@@ -418,5 +466,154 @@ actor {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
     puterToken := token;
+  };
+
+  // ========== AI LOG (BUSINESS INTELLIGENCE) ==========
+
+  /// Used by backend to store logs
+  public shared ({ caller }) func logAiGeneration(prompt : Text, inputImageBlobId : Text, outputImageBlobId : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only authenticated users can log AI generations");
+    };
+    let logId = nextAiLogId;
+    let log : AiGenerationLog = {
+      id = logId;
+      userPrincipal = caller;
+      prompt;
+      inputImageBlobId;
+      outputImageBlobId;
+      createdAt = Time.now();
+    };
+    aiGenerationLogs.add(logId, log);
+    nextAiLogId += 1;
+  };
+
+  /// Gets all logs (sorted by oldestId) (admin-only)
+  public query ({ caller }) func getAiGenerationLogs() : async [AiGenerationLog] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can access the AI generation logs");
+    };
+    aiGenerationLogs.values().toArray();
+  };
+
+  /// Gets all logs in reverse order (admin-only)
+  public query ({ caller }) func getAiGenerationLogsReverse() : async [AiGenerationLog] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can access the AI generation logs");
+    };
+    aiGenerationLogs.values().toArray().reverse();
+  };
+
+  /// Gets all logs (sorted by createdAt desc) (admin-only)
+  public query ({ caller }) func getAiGenerationLogsSorted() : async [AiGenerationLog] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can access the AI generation logs");
+    };
+
+    func compareByCreatedAtDesc(a : AiGenerationLog, b : AiGenerationLog) : Order.Order {
+      Int.compare(b.createdAt, a.createdAt);
+    };
+
+    aiGenerationLogs.values().toArray().sort(compareByCreatedAtDesc);
+  };
+
+  /// Returns the number of AI Generation logs that have been created
+  public query ({ caller }) func getAiGenerationLogCount() : async Nat {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view this statistic");
+    };
+    aiGenerationLogs.size();
+  };
+
+  // ========== STARRED DESIGNS ==========
+
+  /// Add a starred design (returns entry id)
+  public shared ({ caller }) func addStarredEntry(name : Text, description : Text, imageUrl : Text, prompt : Text) : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can add starred entries");
+    };
+
+    let entryId = nextStarredEntryId;
+    let entry : StarredEntry = {
+      id = entryId;
+      userPrincipal = caller;
+      name;
+      description;
+      imageUrl;
+      prompt;
+      createdAt = Time.now();
+      updatedAt = Time.now();
+    };
+    starredEntries.add(entryId, entry);
+    nextStarredEntryId += 1;
+    entryId;
+  };
+
+  /// Get all of the caller's own starred entries (sorted by createdAt desc)
+  public query ({ caller }) func getMyStarredEntries() : async [StarredEntry] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can get starred entries");
+    };
+
+    func compareByCreatedAtDesc(a : StarredEntry, b : StarredEntry) : Order.Order {
+      Int.compare(b.createdAt, a.createdAt);
+    };
+
+    starredEntries.values().toArray().filter(func(entry) { entry.userPrincipal == caller }).sort(compareByCreatedAtDesc);
+  };
+
+  /// Get starred entries for a user (admin-only)
+  public query ({ caller }) func getStarredEntries(userPrincipal : Principal) : async [StarredEntry] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can get another user's starred entries");
+    };
+
+    func compareByCreatedAtDesc(a : StarredEntry, b : StarredEntry) : Order.Order {
+      Int.compare(b.createdAt, a.createdAt);
+    };
+
+    starredEntries.values().toArray().filter(func(entry) { entry.userPrincipal == userPrincipal }).sort(compareByCreatedAtDesc);
+  };
+
+  /// Updates the name and description for a starred design (only for the user that created it).
+  public shared ({ caller }) func updateStarredEntry(entryId : Nat, name : Text, description : Text) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update starred entries");
+    };
+    let original = switch (starredEntries.get(entryId)) {
+      case (null) { Runtime.trap("Entry not found") };
+      case (?entry) { entry };
+    };
+    if (original.userPrincipal != caller) { Runtime.trap("Unauthorized: Entry does not belong to this user") };
+    starredEntries.add(entryId, { original with name; description; updatedAt = Time.now() });
+  };
+
+  /// Deletes a starred design for a user, if it exists
+  public shared ({ caller }) func deleteStarredEntry(entryId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete starred entries");
+    };
+    let original = switch (starredEntries.get(entryId)) {
+      case (null) { Runtime.trap("Entry not found") };
+      case (?entry) { entry };
+    };
+    if (original.userPrincipal != caller) { Runtime.trap("Unauthorized: Entry does not belong to this user") };
+    starredEntries.remove(entryId);
+  };
+
+  /// Returns the number of starred entries for a user.
+  public shared ({ caller }) func getMyStarredEntryCount() : async Nat {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can get starred entries");
+    };
+    starredEntries.values().toArray().filter(func(entry) { entry.userPrincipal == caller }).size();
+  };
+
+  /// Returns the number of starred entries created by all users (admin-only).
+  public query ({ caller }) func getTotalStarredEntryCount() : async Nat {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can get total starred entry count");
+    };
+    starredEntries.size();
   };
 };

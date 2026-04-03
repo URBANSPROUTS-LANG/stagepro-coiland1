@@ -51,6 +51,7 @@ import {
   Moon,
   Sofa,
   Sparkles,
+  Star,
   Sun,
   Sunset,
   TreePine,
@@ -73,6 +74,8 @@ interface DesignToolProps {
   identity?: Identity;
   onLogin: () => void;
   onLogout?: () => void;
+  onHistory?: () => void;
+  actor?: any;
 }
 
 interface Generation {
@@ -612,6 +615,7 @@ export default function DesignTool({
   identity: _identity,
   onLogin,
   onLogout,
+  onHistory,
 }: DesignToolProps) {
   const { actor } = useActor();
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -653,6 +657,14 @@ export default function DesignTool({
   const [newThemeName, setNewThemeName] = useState("");
   const [newThemePromptText, setNewThemePromptText] = useState("");
   const [isSavingTheme, setIsSavingTheme] = useState(false);
+
+  // Star / History modal state
+  const [starModalOpen, setStarModalOpen] = useState(false);
+  const [starModalImageUrl, setStarModalImageUrl] = useState("");
+  const [starModalPrompt, setStarModalPrompt] = useState("");
+  const [starName, setStarName] = useState("");
+  const [starDescription, setStarDescription] = useState("");
+  const [isSavingStar, setIsSavingStar] = useState(false);
 
   // Multi-image upload
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -1168,6 +1180,37 @@ export default function DesignTool({
     a.click();
   };
 
+  const handleStarSave = async () => {
+    if (!starName.trim()) {
+      toast.error("Please enter a name");
+      return;
+    }
+    if (!actor) {
+      toast.error("Not connected to backend");
+      return;
+    }
+    setIsSavingStar(true);
+    try {
+      await (actor as any).addStarredEntry(
+        starName.trim(),
+        starDescription.trim(),
+        starModalImageUrl,
+        starModalPrompt,
+      );
+      toast.success("Saved to History!");
+      setStarModalOpen(false);
+      // Fire-and-forget log
+      (actor as any)
+        .logAiGeneration(starModalPrompt, "", starModalImageUrl)
+        .catch(() => {});
+    } catch (err) {
+      console.error("Failed to save starred entry:", err);
+      toast.error("Failed to save to history");
+    } finally {
+      setIsSavingStar(false);
+    }
+  };
+
   const handleVideoDownload = (gen: VideoGeneration) => {
     const a = document.createElement("a");
     a.href = gen.videoUrl;
@@ -1343,6 +1386,19 @@ export default function DesignTool({
               data-ocid="design.logout.button"
             >
               Log Out
+            </button>
+          )}
+
+          {onHistory && (
+            <button
+              type="button"
+              onClick={onHistory}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-yellow-50"
+              style={{ color: "#D97706", border: "1px solid #FDE68A" }}
+              data-ocid="design.starred.button"
+            >
+              <Star className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Starred</span>
             </button>
           )}
 
@@ -1789,6 +1845,31 @@ export default function DesignTool({
                               >
                                 <Download className="h-3 w-3" />
                                 Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStarModalImageUrl(gen.generatedImageUrl);
+                                  setStarModalPrompt(
+                                    gen.instructions ||
+                                      [gen.tool, gen.roomType, gen.style]
+                                        .filter(Boolean)
+                                        .join(" "),
+                                  );
+                                  setStarName("");
+                                  setStarDescription("");
+                                  setStarModalOpen(true);
+                                }}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1 rounded-lg transition-colors hover:bg-yellow-50"
+                                style={{
+                                  color: "#D97706",
+                                  border: "1px solid #FDE68A",
+                                }}
+                                data-ocid="design.chat.star.button"
+                                title="Save to History"
+                              >
+                                <Star className="h-3 w-3" />
+                                Star
                               </button>
                             </div>
                           </div>
@@ -2437,6 +2518,74 @@ export default function DesignTool({
               Cancel
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Star / Save to History Modal */}
+      <Dialog
+        open={starModalOpen}
+        onOpenChange={(open) => {
+          if (!open) setStarModalOpen(false);
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-md"
+          style={{ backgroundColor: "#F3F0E6" }}
+          data-ocid="design.star.dialog"
+        >
+          <DialogHeader>
+            <DialogTitle style={{ color: "#1A1A1A" }}>
+              ⭐ Save to History
+            </DialogTitle>
+            <DialogDescription style={{ color: "#7A7A7A" }}>
+              Give this design a name to save it to your starred history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label style={{ color: "#3A3A3A" }}>Name *</Label>
+              <Input
+                value={starName}
+                onChange={(e) => setStarName(e.target.value)}
+                placeholder="e.g. Living Room Redesign"
+                style={{ backgroundColor: "#fff", borderColor: "#DDD6C8" }}
+                data-ocid="design.star.input"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label style={{ color: "#3A3A3A" }}>Description (optional)</Label>
+              <Textarea
+                value={starDescription}
+                onChange={(e) => setStarDescription(e.target.value)}
+                placeholder="Add notes about this design..."
+                rows={3}
+                style={{ backgroundColor: "#fff", borderColor: "#DDD6C8" }}
+                data-ocid="design.star.textarea"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <button
+              type="button"
+              onClick={() => setStarModalOpen(false)}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
+              style={{ border: "1px solid #DDD6C8", color: "#5A5A5A" }}
+              data-ocid="design.star.cancel_button"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleStarSave}
+              disabled={isSavingStar || !starName.trim()}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5"
+              style={{ backgroundColor: "#6F9D79", color: "#fff" }}
+              data-ocid="design.star.confirm_button"
+            >
+              {isSavingStar && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Save to History
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
