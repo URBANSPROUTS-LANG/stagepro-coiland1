@@ -133,7 +133,7 @@ actor {
   let userThemes = Map.empty<Principal, Map.Map<Int, CustomTheme>>();
 
   // Persistent puter token with default value
-  var puterToken : Text = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiZ3VpIiwidiI6IjAuMC4wIiwidSI6IkdiTzc1aEJTUWdlZUkyZFc3VVJqNHc9PSIsInV1IjoiTkFoem9pTmNTSXVqaDlnNTNCYXlhUT09IiwiaWF0IjoxNzc1MTg2MzUwfQ.X5Bl1Wy_5LIznQe5MzRYrxThANTaJQKJPXzhP-wZN9I";
+  var puterToken : Text = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiZ3VpIiwidiI6IjAuMC4wIiwidSI6Ii9aT0hlK2Z4VFZDUm5nNjRJQS9OSHc9PSIsInV1IjoiRERkNzRGZWdUeXVrU0Y1dVNxSGdjZz09IiwiaWF0IjoxNzc1MjA2MjQ4fQ.GJl6O2B2f3pNTmjhY0vSWupHlKYUN1ooxeV0hAy-CLoJu1m";
 
   // ========== NEW DATA STRUCTURES ==========
   // AI Log
@@ -275,7 +275,7 @@ actor {
       case (null) { Runtime.trap("Subscription not found") };
       case (?s) { s };
     };
-    let newLimits = getPlanLimits(newPlan);
+    let _newLimits = getPlanLimits(newPlan);
     let updatedSub : SubscriptionUsage = {
       plan = newPlan;
       photosUsed = 0;
@@ -286,7 +286,7 @@ actor {
     subscriptionUsage.add(user, updatedSub);
   };
 
-  public shared ({ caller }) func getPlanLimitsQuery(plan : SubscriptionPlan) : async PlanLimits {
+  public shared func getPlanLimitsQuery(plan : SubscriptionPlan) : async PlanLimits {
     getPlanLimits(plan);
   };
 
@@ -311,7 +311,7 @@ actor {
     if (isClaimed) {
       Runtime.trap("Payment already claimed");
     };
-    let newLimits = getPlanLimits(planId);
+    let _newLimits = getPlanLimits(planId);
     let updatedSub : SubscriptionUsage = {
       plan = planId;
       photosUsed = 0;
@@ -451,13 +451,13 @@ actor {
   };
 
   // ========== EXTERNAL BLOB STORAGE MANAGEMENT ==========
-  public query ({ caller }) func getImage(image : Storage.ExternalBlob) : async Storage.ExternalBlob {
+  public query func getImage(image : Storage.ExternalBlob) : async Storage.ExternalBlob {
     image;
   };
 
   // ========== PUTER TOKEN MANAGEMENT ==========
 
-  public query ({ caller }) func getPuterToken() : async Text {
+  public query func getPuterToken() : async Text {
     puterToken;
   };
 

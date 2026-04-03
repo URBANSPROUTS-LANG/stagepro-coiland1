@@ -66,6 +66,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import BeforeAfterSlider from "../components/BeforeAfterSlider";
 import { useActor } from "../hooks/useActor";
+import { usePuter } from "../hooks/usePuter";
 
 interface DesignToolProps {
   onBack: () => void;
@@ -677,7 +678,6 @@ export default function DesignTool({
   );
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const puterTokenRef = useRef<string | null>(null);
 
   const activeTool =
     ALL_TOOLS.find((t) => t.id === selectedTool) ?? ALL_TOOLS[0];
@@ -705,29 +705,8 @@ export default function DesignTool({
     }
   }, [isAuthenticated, actor]);
 
-  // Initialize Puter token from backend canister (no login required)
-  useEffect(() => {
-    if (!actor) return;
-    (actor as any)
-      .getPuterToken()
-      .then((result: [] | [string]) => {
-        const token =
-          Array.isArray(result) && result.length > 0 ? result[0] : null;
-        if (token) {
-          puterTokenRef.current = token;
-          const puter = (window as any).puter;
-          if (puterTokenRef.current) {
-            puter.authToken = token;
-            // Permanently suppress any auth popups
-            if (puter.auth) {
-              puter.auth.signIn = () => Promise.resolve(null);
-              puter.auth.isSignedIn = () => true;
-            }
-          }
-        }
-      })
-      .catch(console.error);
-  }, [actor]);
+  // Load Puter.js with pre-set auth token to prevent popup
+  const { puter: puterInstance, isReady: isPuterReady } = usePuter(actor);
 
   // Load custom themes when authenticated
   const loadCustomThemes = async () => {
@@ -986,16 +965,9 @@ export default function DesignTool({
     setIsGenerating(true);
     startProgress(true);
     try {
-      const puter = (window as any).puter;
-      if (!puter) throw new Error("Puter.js not loaded");
-      if (puterTokenRef.current) {
-        puter.authToken = puterTokenRef.current;
-        if (puter.auth) {
-          puter.auth.signIn = () => Promise.resolve(null);
-          puter.auth.isSignedIn = () => true;
-        }
-      }
-      const videoEl = await puter.ai.txt2vid(videoPrompt, {
+      if (!isPuterReady || !puterInstance)
+        throw new Error("AI not ready, please wait...");
+      const videoEl = await puterInstance.ai.txt2vid(videoPrompt, {
         model: "sora-2",
         seconds: selectedDuration,
         size: selectedResolution,
@@ -1059,17 +1031,10 @@ export default function DesignTool({
       setIsGenerating(true);
       startProgress();
       try {
-        const puter = (window as any).puter;
-        if (!puter) throw new Error("Puter.js not loaded");
-        if (puterTokenRef.current) {
-          puter.authToken = puterTokenRef.current;
-          if (puter.auth) {
-            puter.auth.signIn = () => Promise.resolve(null);
-            puter.auth.isSignedIn = () => true;
-          }
-        }
+        if (!isPuterReady || !puterInstance)
+          throw new Error("AI not ready, please wait...");
         const prompt = `STRICT INSTRUCTIONS (you MUST follow these exactly): ${instructions || "improve the overall look, keep structure identical"}. Refine this room design. Keep the overall layout and structure.`;
-        const imageElement = await puter.ai.txt2img(prompt, {
+        const imageElement = await puterInstance.ai.txt2img(prompt, {
           model: "black-forest-labs/flux.1-kontext-pro",
           image_url: target.generatedImageUrl,
         });
@@ -1112,15 +1077,8 @@ export default function DesignTool({
       setIsGenerating(true);
       startProgress();
       try {
-        const puter = (window as any).puter;
-        if (!puter) throw new Error("Puter.js not loaded");
-        if (puterTokenRef.current) {
-          puter.authToken = puterTokenRef.current;
-          if (puter.auth) {
-            puter.auth.signIn = () => Promise.resolve(null);
-            puter.auth.isSignedIn = () => true;
-          }
-        }
+        if (!isPuterReady || !puterInstance)
+          throw new Error("AI not ready, please wait...");
         const strictConstraints = instructions
           ? `STRICT INSTRUCTIONS (you MUST follow these exactly): ${instructions}. `
           : "";
@@ -1141,7 +1099,7 @@ export default function DesignTool({
 
         for (let i = 0; i < imagesToProcess.length; i++) {
           const imgUrl = imagesToProcess[i];
-          const imageElement = await puter.ai.txt2img(prompt, {
+          const imageElement = await puterInstance.ai.txt2img(prompt, {
             model: "black-forest-labs/flux.1-kontext-pro",
             image_url: imgUrl,
           });

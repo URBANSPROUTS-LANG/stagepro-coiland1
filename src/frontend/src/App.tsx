@@ -452,15 +452,22 @@ function PreLoginPage({
 export default function App() {
   const [view, setView] = useState<AppView>("landing");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [principalCopied, setPrincipalCopied] = useState(false);
   const { identity, login, clear, isInitializing } = useInternetIdentity();
   const isAuthenticated = !!identity && !identity.getPrincipal().isAnonymous();
   const { actor } = useActor();
 
-  // Check admin status once authenticated
+  // Register user and then check admin status
   useEffect(() => {
     if (!isAuthenticated || !actor) return;
     (actor as any)
-      .isCallerAdmin()
+      .selfRegister("")
+      .catch(() => {
+        // "User already registered" trap is expected on subsequent logins — ignore
+      })
+      .then(() => {
+        return (actor as any).isCallerAdmin();
+      })
       .then((result: boolean) => setIsAdmin(result))
       .catch(() => setIsAdmin(false));
   }, [isAuthenticated, actor]);
@@ -520,12 +527,6 @@ export default function App() {
       });
   }, [isAuthenticated, actor]);
 
-  // Register user in access control system on first login
-  useEffect(() => {
-    if (!isAuthenticated || !actor) return;
-    (actor as any).selfRegister().catch(console.error);
-  }, [isAuthenticated, actor]);
-
   // Block all access until authenticated
   if (!isAuthenticated) {
     return (
@@ -548,6 +549,32 @@ export default function App() {
           onClick={() => setView("admin-logs")}
         >
           Admin · Logs
+        </button>
+      )}
+
+      {/* Principal ID display — always visible when logged in, to help find your principal */}
+      {isAuthenticated && identity && (
+        <button
+          type="button"
+          data-ocid="principal.copy.button"
+          className="fixed top-4 left-4 z-50 px-3 py-1 rounded-full text-xs font-semibold shadow-md cursor-pointer select-none transition-opacity hover:opacity-80 border-0 max-w-xs truncate"
+          style={{
+            backgroundColor: "#E5E0D5",
+            color: "#444",
+            border: "1px solid #ccc",
+          }}
+          onClick={() => {
+            const principal = identity.getPrincipal().toText();
+            navigator.clipboard.writeText(principal).then(() => {
+              setPrincipalCopied(true);
+              setTimeout(() => setPrincipalCopied(false), 2000);
+            });
+          }}
+          title={identity.getPrincipal().toText()}
+        >
+          {principalCopied
+            ? "✓ Copied!"
+            : `ID: ${identity.getPrincipal().toText().slice(0, 20)}...`}
         </button>
       )}
 
