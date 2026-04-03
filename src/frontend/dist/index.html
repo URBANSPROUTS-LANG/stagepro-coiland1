@@ -5,15 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>StagePro — AI Interior Design</title>
     <script>
-      // Hardcoded Puter auth token — set before Puter.js loads
-      var PUTER_AUTH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiZ3VpIiwidiI6IjAuMC4wIiwidSI6IkdiTzc1aEJTUWdlZUkyZFc3VVJqNHc9PSIsInV1IjoiTkFoem9pTmNTSXVqaDlnNTNCYXlhUT09IiwiaWF0IjoxNzc1MTg2MzUwfQ.X5Bl1Wy_5LIznQe5MzRYrxThANTaJQKJPXzhP-wZN9I';
-
-      // Tell Puter to run in embedded/app mode — disables user-facing auth UI
+      // Puter auth token is NOT stored here — it is fetched securely from the backend canister at runtime.
+      // Initialize puter in app mode with no token yet.
       window.puter = window.puter || {};
       window.puter.env = 'app';
       window.puter.appID = 'stagepro-app';
       window.__puter_no_auth__ = true;
-      window.puter.authToken = PUTER_AUTH_TOKEN;
+      window.puter.authToken = null;
 
       // Block any auth popup window before Puter.js loads
       var _origOpen = window.open.bind(window);
@@ -37,24 +35,44 @@
           e.stopImmediatePropagation();
         }
       }, true);
+
+      // Nuclear iframe blocking — prevent Puter from injecting its auth dialog
+      var _origCreateElement = document.createElement.bind(document);
+      document.createElement = function(tag) {
+        var el = _origCreateElement(tag);
+        if (tag && tag.toLowerCase() === 'iframe') {
+          Object.defineProperty(el, 'src', {
+            set: function(val) {
+              if (val && typeof val === 'string' && (
+                val.includes('puter.com') || val.includes('puter.site')
+              )) {
+                console.warn('[StagePro] Blocked Puter iframe:', val);
+                return;
+              }
+              el.setAttribute('src', val);
+            },
+            get: function() { return el.getAttribute('src'); }
+          });
+        }
+        return el;
+      };
     </script>
     <script src="https://js.puter.com/v2/" no-auth></script>
     <script>
-      // Immediately patch Puter auth — synchronous, before any React code runs
+      // Immediately patch Puter auth — synchronous, before any React code runs.
+      // Token will be injected from backend canister via DesignTool/StagingFlow at runtime.
       (function patchPuterAuth() {
         var noop = function() { return Promise.resolve(null); };
         function applyPatch() {
           if (window.puter) {
-            // Inject token
-            window.puter.authToken = PUTER_AUTH_TOKEN;
-            // Patch auth methods
+            // Patch auth methods to prevent popup
             if (!window.puter.auth) window.puter.auth = {};
             window.puter.auth.signIn = noop;
             window.puter.auth.signUp = noop;
-            window.puter.auth.getUser = function() { return Promise.resolve({ token: PUTER_AUTH_TOKEN }); };
+            window.puter.auth.getUser = function() { return Promise.resolve({ token: window.puter.authToken }); };
             window.puter.auth.isSignedIn = function() { return true; };
             window.puter.auth.showDialog = noop;
-            window.puter.auth.getToken = function() { return Promise.resolve(PUTER_AUTH_TOKEN); };
+            window.puter.auth.getToken = function() { return Promise.resolve(window.puter.authToken); };
           }
         }
         applyPatch();
@@ -63,6 +81,13 @@
         // MutationObserver to catch any dynamic re-init
         var observer = new MutationObserver(applyPatch);
         observer.observe(document.documentElement, { childList: true, subtree: true });
+        // Continuous patching for the first 10 seconds after page load
+        var patchCount = 0;
+        var patchInterval = setInterval(function() {
+          applyPatch();
+          patchCount++;
+          if (patchCount >= 20) clearInterval(patchInterval);
+        }, 500);
       })();
     </script>
     <script type="module" crossorigin src="/assets/index-Ce67ycOR.js"></script>
