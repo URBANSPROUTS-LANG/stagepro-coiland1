@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("/assets/fonts/PlusJakartaSans.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  :root {
+    --radius: 0.5rem;
+
+    /* Warm cream background: #F3F0E6 */
+    --background: 0.949 0.012 87.5;
+    /* Near-black heading: #111111 */
+    --foreground: 0.14 0 0;
+    /* Cards/surfaces: #FAF8F1 */
+    --card: 0.972 0.009 87.5;
+    --card-foreground: 0.14 0 0;
+    --popover: 0.972 0.009 87.5;
+    --popover-foreground: 0.14 0 0;
+    /* Primary = sage green: #6F9D79 */
+    --primary: 0.62 0.085 147;
+    /* Button text on green: #F7F7F5 */
+    --primary-foreground: 0.975 0.004 87.5;
+    /* Secondary: lighter cream */
+    --secondary: 0.93 0.015 87.5;
+    --secondary-foreground: 0.14 0 0;
+    /* Muted: #EEE7DA */
+    --muted: 0.92 0.018 87.5;
+    /* Muted text: #6F6F6F */
+    --muted-foreground: 0.52 0 0;
+    --accent: 0.62 0.085 147;
+    --accent-foreground: 0.975 0.004 87.5;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    /* Dividers: #DDD6C8 */
+    --border: 0.875 0.018 87.5;
+    --input: 0.875 0.018 87.5;
+    --ring: 0.62 0.085 147;
+    --chart-1: 0.646 0.222 41.116;
+    --chart-2: 0.6 0.118 184.704;
+    --chart-3: 0.398 0.07 227.392;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.769 0.188 70.08;
+    --sidebar: 0.972 0.009 87.5;
+    --sidebar-foreground: 0.14 0 0;
+    --sidebar-primary: 0.62 0.085 147;
+    --sidebar-primary-foreground: 0.975 0.004 87.5;
+    --sidebar-accent: 0.93 0.015 87.5;
+    --sidebar-accent-foreground: 0.14 0 0;
+    --sidebar-border: 0.875 0.018 87.5;
+    --sidebar-ring: 0.62 0.085 147;
+
+    /* Custom tokens */
+    --mockup-frame: #1e2528;
+    --footer-bg: #1f2a2e;
+    --footer-text: #d7dadb;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+}
+
+/* Comparison slider styles */
+.comparison-slider {
+  position: relative;
+  overflow: hidden;
+  cursor: col-resize;
+  user-select: none;
+}
+
+.comparison-slider .slider-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: white;
+  cursor: col-resize;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.comparison-slider .slider-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 11;
+}

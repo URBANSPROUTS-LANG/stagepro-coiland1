@@ -1,0 +1,38 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StagePro — AI Interior Design</title>
+    <script>
+      // Block any Puter auth popups before Puter.js loads
+      window.__puter_no_auth__ = true;
+      // Override window.open to block any auth popup windows
+      const _origOpen = window.open.bind(window);
+      window.open = function(url, name, features) {
+        if (url && typeof url === 'string' && url.includes('puter.com/action/sign-in')) {
+          console.warn('[StagePro] Blocked Puter sign-in popup');
+          return null;
+        }
+        return _origOpen(url, name, features);
+      };
+    </script>
+    <script src="https://js.puter.com/v2/" no-auth></script>
+    <script>
+      // After Puter loads, override auth methods to be no-ops
+      window.addEventListener('load', function() {
+        if (window.puter && window.puter.auth) {
+          window.puter.auth.signIn = function() {
+            return Promise.resolve(null);
+          };
+          window.puter.auth.getUser = function() {
+            return Promise.resolve(null);
+          };
+        }
+      });
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

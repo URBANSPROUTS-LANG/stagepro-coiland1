@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StagePro — AI Interior Design</title>
+    <script>
+      // Hardcoded Puter auth token — set before Puter.js loads
+      var PUTER_AUTH_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0IjoiZ3VpIiwidiI6IjAuMC4wIiwidSI6IkdiTzc1aEJTUWdlZUkyZFc3VVJqNHc9PSIsInV1IjoiTkFoem9pTmNTSXVqaDlnNTNCYXlhUT09IiwiaWF0IjoxNzc1MTg2MzUwfQ.X5Bl1Wy_5LIznQe5MzRYrxThANTaJQKJPXzhP-wZN9I';
+
+      // Tell Puter to run in embedded/app mode — disables user-facing auth UI
+      window.puter = window.puter || {};
+      window.puter.env = 'app';
+      window.puter.appID = 'stagepro-app';
+      window.__puter_no_auth__ = true;
+      window.puter.authToken = PUTER_AUTH_TOKEN;
+
+      // Block any auth popup window before Puter.js loads
+      var _origOpen = window.open.bind(window);
+      window.open = function(url, name, features) {
+        if (url && typeof url === 'string' && (
+          url.includes('puter.com/action/sign-in') ||
+          url.includes('puter.com/login') ||
+          url.includes('puter.com/auth')
+        )) {
+          console.warn('[StagePro] Blocked Puter sign-in popup:', url);
+          return null;
+        }
+        return _origOpen(url, name, features);
+      };
+
+      // Block postMessage-based auth dialogs
+      window.addEventListener('message', function(e) {
+        if (e.data && typeof e.data === 'object' && e.data.type && (
+          e.data.type.includes('auth') || e.data.type.includes('signin') || e.data.type.includes('login')
+        )) {
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    </script>
+    <script src="https://js.puter.com/v2/" no-auth></script>
+    <script>
+      // Immediately patch Puter auth — synchronous, before any React code runs
+      (function patchPuterAuth() {
+        var noop = function() { return Promise.resolve(null); };
+        function applyPatch() {
+          if (window.puter) {
+            // Inject token
+            window.puter.authToken = PUTER_AUTH_TOKEN;
+            // Patch auth methods
+            if (!window.puter.auth) window.puter.auth = {};
+            window.puter.auth.signIn = noop;
+            window.puter.auth.signUp = noop;
+            window.puter.auth.getUser = function() { return Promise.resolve({ token: PUTER_AUTH_TOKEN }); };
+            window.puter.auth.isSignedIn = function() { return true; };
+            window.puter.auth.showDialog = noop;
+            window.puter.auth.getToken = function() { return Promise.resolve(PUTER_AUTH_TOKEN); };
+          }
+        }
+        applyPatch();
+        // Also patch after full load in case Puter re-initialises itself
+        window.addEventListener('load', applyPatch);
+        // MutationObserver to catch any dynamic re-init
+        var observer = new MutationObserver(applyPatch);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
